@@ -6,13 +6,17 @@ import orjson
 
 logger = logging.getLogger("stefan-api-test-3")
 
+# TTS-specifika inställningar
+DEFAULT_VOICE_ID = "2zRM7PkgwBPiau2jvVXc"  # Sätt ditt voice-ID här
+DEFAULT_MODEL_ID = "eleven_turbo_v2_5"
 
-async def process_text_to_audio(ws, text, voice_id, model_id, settings, started_at):
+
+async def process_text_to_audio(ws, text, settings, started_at):
     """Hanterar ElevenLabs API-kommunikation och returnerar rå data."""
     
     # 2) Anslut till ElevenLabs
-    query = f"?model_id={model_id}&output_format=pcm_16000"
-    eleven_ws_url = f"wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input{query}"
+    query = f"?model_id={DEFAULT_MODEL_ID}&output_format=pcm_16000"
+    eleven_ws_url = f"wss://api.elevenlabs.io/v1/text-to-speech/{DEFAULT_VOICE_ID}/stream-input{query}"
     headers = [("xi-api-key", settings.ELEVENLABS_API_KEY)]
 
     audio_bytes_total = 0

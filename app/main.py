@@ -70,16 +70,14 @@ async def ws_tts(ws: WebSocket):
         await _send_json(ws, {"type": "status", "stage": "ready"})
 
         # 1) Ta emot och validera text från frontend
-        text_data = await receive_and_validate_text(ws, settings)
+        text_data = await receive_and_validate_text(ws)
         if text_data is None:
             return  # receive_and_validate_text hanterar fel och stänger ws
         
         text = text_data["text"]
-        voice_id = text_data["voice_id"]
-        model_id = text_data["model_id"]
 
-        await _send_json(ws, {"type": "status", "stage": "connecting-elevenlabs", "voice_id": voice_id})
-        logger.debug("Connecting to ElevenLabs: voice_id=%s model_id=%s", voice_id, model_id)
+        await _send_json(ws, {"type": "status", "stage": "connecting-elevenlabs"})
+        logger.debug("Connecting to ElevenLabs")
 
         # 2) Hantera ElevenLabs API-kommunikation och audio-streaming
         await _send_json(ws, {"type": "status", "stage": "streaming"})
@@ -87,7 +85,7 @@ async def ws_tts(ws: WebSocket):
         audio_bytes_total = 0
         last_chunk_ts = None
         
-        async for server_msg, current_audio_bytes in process_text_to_audio(ws, text, voice_id, model_id, settings, started_at):
+        async for server_msg, current_audio_bytes in process_text_to_audio(ws, text, settings, started_at):
             # Hantera audio-streaming till frontend
             audio_bytes_total, last_chunk_ts, should_break = await send_audio_to_frontend(
                 ws, server_msg, current_audio_bytes, last_chunk_ts
