@@ -22,7 +22,7 @@ from .tts.text_to_audio import process_text_to_audio
 from .tts.send_audio_to_frontend import send_audio_to_frontend
 
 logger = logging.getLogger("stefan-api-test-3")
-logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="stefan-api-test-3", version="0.1.3")
 
