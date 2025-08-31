@@ -21,7 +21,7 @@ from .endpoints.health import healthz, echo
 from .endpoints.tts_ws import ws_tts
 
 logger = logging.getLogger("stefan-api-test-3")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 app = FastAPI(title="stefan-api-test-3", version="0.1.3")
 
