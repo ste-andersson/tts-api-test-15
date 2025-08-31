@@ -8,7 +8,7 @@ import orjson
 logger = logging.getLogger("stefan-api-test-3")
 
 # TTS-specifika inställningar
-DEFAULT_VOICE_ID = "2zRM7PkgwBPiau2jvVXc"  # Sätt ditt voice-ID här
+DEFAULT_VOICE_ID = "ydcjeBaRUalXzqZuTB3b"  # Sätt ditt voice-ID här
 DEFAULT_MODEL_ID = "eleven_flash_v2_5"
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")  # Hämtas från .env
 
