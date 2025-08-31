@@ -20,6 +20,19 @@ async def process_text_to_audio(ws, text, started_at):
     query = f"?model_id={DEFAULT_MODEL_ID}&output_format=pcm_16000"
     eleven_ws_url = f"wss://api.elevenlabs.io/v1/text-to-speech/{DEFAULT_VOICE_ID}/stream-input{query}"
     headers = [("xi-api-key", ELEVENLABS_API_KEY)]
+    
+    # Skicka API-detaljer till frontend för debugging
+    import json
+    await ws.send_text(json.dumps({
+        "type": "debug", 
+        "provider": "elevenlabs", 
+        "api_details": {
+            "voice_id": DEFAULT_VOICE_ID,
+            "model_id": DEFAULT_MODEL_ID,
+            "url": eleven_ws_url,
+            "has_api_key": bool(ELEVENLABS_API_KEY)
+        }
+    }))
 
     audio_bytes_total = 0
     inactivity_timeout_sec = 12  # intern timeout efter att vi sagt "streaming"
@@ -42,6 +55,18 @@ async def process_text_to_audio(ws, text, started_at):
         }
         await eleven.send(orjson.dumps(init_msg).decode())
         logger.debug("Sent init message to ElevenLabs")
+        
+        # Skicka init-meddelandet till frontend för debugging
+        await ws.send_text(json.dumps({
+            "type": "debug",
+            "provider": "elevenlabs", 
+            "init_message": {
+                "text": init_msg["text"],
+                "voice_settings": init_msg["voice_settings"],
+                "generation_config": init_msg["generation_config"],
+                "has_api_key": bool(init_msg["xi_api_key"])
+            }
+        }))
 
         # 4) Skicka text och trigga generering direkt
         await eleven.send(orjson.dumps({"text": text, "try_trigger_generation": True}).decode())
