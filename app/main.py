@@ -13,6 +13,7 @@ from websockets.client import connect as ws_connect
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 
 from .config import settings
+from .tts.receive_text_from_frontend import receive_and_validate_text
 
 logger = logging.getLogger("stefan-api-test-3")
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
@@ -66,28 +67,14 @@ async def ws_tts(ws: WebSocket):
     try:
         await _send_json(ws, {"type": "status", "stage": "ready"})
 
-        # 1) Ta emot klientens första meddelande
-        raw = await ws.receive_text()
-        try:
-            data = json.loads(raw)
-        except Exception:
-            await _send_json(ws, {"type": "error", "message": "Invalid JSON"})
-            await ws.close(code=1003)
-            return
-
-        text: Optional[str] = (data.get("text") or "").strip()
-        voice_id: str = data.get("voice_id") or settings.DEFAULT_VOICE_ID
-        model_id: str = data.get("model_id") or settings.DEFAULT_MODEL_ID
-
-        if not text:
-            await _send_json(ws, {"type": "error", "message": "Tom text"})
-            await ws.close(code=1003)
-            return
-
-        if len(text) > settings.MAX_TEXT_CHARS:
-            await _send_json(ws, {"type": "error", "message": f"Max {settings.MAX_TEXT_CHARS} tecken"})
-            await ws.close(code=1009)
-            return
+        # 1) Ta emot och validera text från frontend
+        text_data = await receive_and_validate_text(ws, settings)
+        if text_data is None:
+            return  # receive_and_validate_text hanterar fel och stänger ws
+        
+        text = text_data["text"]
+        voice_id = text_data["voice_id"]
+        model_id = text_data["model_id"]
 
         await _send_json(ws, {"type": "status", "stage": "connecting-elevenlabs", "voice_id": voice_id})
         logger.debug("Connecting to ElevenLabs: voice_id=%s model_id=%s", voice_id, model_id)
