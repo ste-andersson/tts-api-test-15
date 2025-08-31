@@ -10,7 +10,7 @@ services:
       - key: DEFAULT_VOICE_ID
         sync: false
       - key: DEFAULT_MODEL_ID
-        value: eleven_turbo_v2_5
+        value: eleven_ttv_v3
       - key: ALLOWED_ORIGIN_REGEX
         value: ^https?://(localhost(:\d+)?|.*\.lovable\.app)$
       - key: MAX_TEXT_CHARS

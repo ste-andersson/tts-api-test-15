@@ -22,7 +22,7 @@ Realtime TTS-backend som proxyar mot ElevenLabs WebSocket-API och streamar audio
 ```
 - `text`: krävs, max `MAX_TEXT_CHARS` (default 1000)
 - `voice_id`: valfritt (default från backend)
-- `model_id`: valfritt (default `eleven_turbo_v2_5`)
+- `model_id`: valfritt (default `eleven_ttv_v3`, kan ändras i `app/tts/text_to_audio.py`)
 
 **Backend → Kund**: text-meddelanden med status
 ```json
