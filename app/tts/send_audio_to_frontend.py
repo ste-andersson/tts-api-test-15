@@ -5,6 +5,12 @@ import time
 
 logger = logging.getLogger("stefan-api-test-3")
 
+async def _send_debug_json(ws, obj: dict):
+    """Skicka JSON (utf-8) till frontend för debug-meddelanden."""
+    try:
+        await ws.send_text(json.dumps(obj))
+    except Exception as e:
+        logger.error("Failed to send debug JSON: %s", e)
 
 async def send_audio_to_frontend(ws, server_msg, audio_bytes_total, last_chunk_ts):
     """Hanterar audio-streaming till frontend."""
@@ -25,14 +31,14 @@ async def send_audio_to_frontend(ws, server_msg, audio_bytes_total, last_chunk_t
 
     # Debug: skicka upp event/meta till frontend (utan base64-datan)
     meta = {k: v for k, v in payload.items() if k not in ("audio", "normalizedAlignment", "alignment")}
-    await _send_json(ws, {"type": "debug", "provider": "elevenlabs", "payload": meta})
+    await _send_debug_json(ws, {"type": "debug", "provider": "elevenlabs", "payload": meta})
     logger.debug("ElevenLabs frame keys=%s", list(payload.keys()))
 
     # Fel från ElevenLabs?
     if payload.get("event") == "error" or "error" in payload:
         err_msg = payload.get("message") or payload.get("error") or "Okänt fel från TTS-leverantören"
         logger.error("ElevenLabs error: %s", err_msg)
-        await _send_json(ws, {"type": "error", "message": err_msg})
+        await _send_debug_json(ws, {"type": "error", "message": err_msg})
         return audio_bytes_total, last_chunk_ts, True  # Signal to break
 
     # Audio‐chunk (base64) – kan vara null/tom → hoppa över
@@ -56,9 +62,4 @@ async def send_audio_to_frontend(ws, server_msg, audio_bytes_total, last_chunk_t
     return audio_bytes_total, last_chunk_ts, is_final
 
 
-async def _send_json(ws, obj: dict):
-    """Skicka JSON (utf-8) till frontend."""
-    try:
-        await ws.send_text(json.dumps(obj))
-    except Exception as e:
-        logger.error("Failed to send JSON: %s", e)
+
