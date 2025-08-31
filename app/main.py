@@ -15,6 +15,7 @@ from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 from .config import settings
 from .tts.receive_text_from_frontend import receive_and_validate_text
 from .tts.text_to_audio import process_text_to_audio
+from .tts.send_audio_to_frontend import send_audio_to_frontend
 
 logger = logging.getLogger("stefan-api-test-3")
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
@@ -81,7 +82,26 @@ async def ws_tts(ws: WebSocket):
         logger.debug("Connecting to ElevenLabs: voice_id=%s model_id=%s", voice_id, model_id)
 
         # 2) Hantera ElevenLabs API-kommunikation och audio-streaming
-        audio_bytes_total = await process_text_to_audio(ws, text, voice_id, model_id, settings, started_at)
+        await _send_json(ws, {"type": "status", "stage": "streaming"})
+        
+        audio_bytes_total = 0
+        last_chunk_ts = None
+        
+        async for server_msg, current_audio_bytes in process_text_to_audio(ws, text, voice_id, model_id, settings, started_at):
+            # Hantera audio-streaming till frontend
+            audio_bytes_total, last_chunk_ts, should_break = await send_audio_to_frontend(
+                ws, server_msg, current_audio_bytes, last_chunk_ts
+            )
+            
+            if should_break:
+                break
+        
+        await _send_json(ws, {
+            "type": "status",
+            "stage": "done",
+            "audio_bytes_total": audio_bytes_total,
+            "elapsed_sec": round(time.time() - started_at, 3),
+        })
 
 
     except WebSocketDisconnect:
