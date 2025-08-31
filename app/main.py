@@ -11,6 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from websockets.client import connect as ws_connect
 from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
+from dotenv import load_dotenv
+
+# Ladda .env-filen
+load_dotenv()
 
 from .config import settings
 from .tts.receive_text_from_frontend import receive_and_validate_text
@@ -85,7 +89,7 @@ async def ws_tts(ws: WebSocket):
         audio_bytes_total = 0
         last_chunk_ts = None
         
-        async for server_msg, current_audio_bytes in process_text_to_audio(ws, text, settings, started_at):
+        async for server_msg, current_audio_bytes in process_text_to_audio(ws, text, started_at):
             # Hantera audio-streaming till frontend
             audio_bytes_total, last_chunk_ts, should_break = await send_audio_to_frontend(
                 ws, server_msg, current_audio_bytes, last_chunk_ts

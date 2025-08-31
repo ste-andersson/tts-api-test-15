@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+import os
 from websockets.client import connect as ws_connect
 import orjson
 
@@ -9,15 +10,16 @@ logger = logging.getLogger("stefan-api-test-3")
 # TTS-specifika inställningar
 DEFAULT_VOICE_ID = "2zRM7PkgwBPiau2jvVXc"  # Sätt ditt voice-ID här
 DEFAULT_MODEL_ID = "eleven_turbo_v2_5"
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")  # Hämtas från .env
 
 
-async def process_text_to_audio(ws, text, settings, started_at):
+async def process_text_to_audio(ws, text, started_at):
     """Hanterar ElevenLabs API-kommunikation och returnerar rå data."""
     
     # 2) Anslut till ElevenLabs
     query = f"?model_id={DEFAULT_MODEL_ID}&output_format=pcm_16000"
     eleven_ws_url = f"wss://api.elevenlabs.io/v1/text-to-speech/{DEFAULT_VOICE_ID}/stream-input{query}"
-    headers = [("xi-api-key", settings.ELEVENLABS_API_KEY)]
+    headers = [("xi-api-key", ELEVENLABS_API_KEY)]
 
     audio_bytes_total = 0
     inactivity_timeout_sec = 12  # intern timeout efter att vi sagt "streaming"
@@ -36,7 +38,7 @@ async def process_text_to_audio(ws, text, settings, started_at):
                 # Lägre trösklar → snabbare start på kort text
                 "chunk_length_schedule": [50, 90, 140]
             },
-            "xi_api_key": settings.ELEVENLABS_API_KEY,
+            "xi_api_key": ELEVENLABS_API_KEY,
         }
         await eleven.send(orjson.dumps(init_msg).decode())
         logger.debug("Sent init message to ElevenLabs")
