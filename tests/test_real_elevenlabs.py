@@ -132,15 +132,16 @@ def test_real_elevenlabs_short_text():
         if not ELEVENLABS_API_KEY:
             pytest.skip("Ingen ElevenLabs API-nyckel konfigurerad (sätt ELEVENLABS_API_KEY miljövariabel)")
         
+        # Hämta text från miljövariabel eller använd standard
+        test_text = os.getenv("TEXT", "Hej!")
+        
         print(f"\n🚀 STARTAR KORT TEXT TEST")
         print(f"🔑 API-nyckel: {'✅ Konfigurerad' if ELEVENLABS_API_KEY else '❌ Saknas'}")
+        print(f"📝 Kort test-text: '{test_text}'")
+        print(f"⏱️  Starttid: {time.strftime('%H:%M:%S')}")
         
         # Simulera websocket
         mock_websocket = AsyncMock()
-        test_text = "Hej!"
-        
-        print(f"📝 Kort test-text: '{test_text}'")
-        print(f"⏱️  Starttid: {time.strftime('%H:%M:%S')}")
         
         started_at = time.time()
         audio_chunks = []
