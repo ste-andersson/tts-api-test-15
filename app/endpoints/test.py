@@ -221,3 +221,153 @@ async def test_endpoint(
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Test execution failed: {str(e)}")
+
+@router.get("/test-ui")
+async def test_ui() -> str:
+    """Returnerar HTML-UI för tester med dropdown."""
+    test_info = get_test_info()
+    
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>TTS Test UI</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; max-width: 800px; }
+            .form-group { margin: 20px 0; }
+            label { display: block; margin-bottom: 5px; font-weight: bold; }
+            select, input[type="text"] { 
+                width: 100%; 
+                padding: 10px; 
+                border: 1px solid #ddd; 
+                border-radius: 4px; 
+                font-size: 16px;
+            }
+            button { 
+                background: #007bff; 
+                color: white; 
+                padding: 12px 24px; 
+                border: none; 
+                border-radius: 4px; 
+                font-size: 16px; 
+                cursor: pointer;
+            }
+            button:hover { background: #0056b3; }
+            .result { 
+                margin-top: 20px; 
+                padding: 15px; 
+                border-radius: 4px; 
+                white-space: pre-wrap;
+            }
+            .success { background: #d4edda; border: 1px solid #c3e6cb; }
+            .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+            .info { background: #d1ecf1; border: 1px solid #bee5eb; }
+        </style>
+    </head>
+    <body>
+        <h1>🎯 TTS Test UI</h1>
+        
+        <div class="form-group">
+            <label for="testType">Välj test:</label>
+            <select id="testType">
+                <option value="">-- Välj test --</option>
+    """
+    
+    for test_key, test_data in test_info.items():
+        html += f'<option value="{test_key}">{test_data["name"]}</option>'
+    
+    html += """
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="testText">Text att testa med (valfritt):</label>
+            <input type="text" id="testText" placeholder="Lämna tomt för standardtext">
+        </div>
+        
+        <div class="form-group">
+            <button onclick="runTest()">🚀 Kör Test</button>
+            <button onclick="runAllTests()">🔄 Kör Alla Tester</button>
+        </div>
+        
+        <div id="result"></div>
+        
+        <script>
+        async function runTest() {
+            const testType = document.getElementById('testType').value;
+            const testText = document.getElementById('testText').value;
+            
+            if (!testType) {
+                alert('Välj ett test först!');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info">⏳ Kör test...</div>';
+            
+            try {
+                let url = `/api/test?test_type=${testType}`;
+                if (testText) {
+                    url += `&text=${encodeURIComponent(testText)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.status === 'completed') {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ Test klart!</h3>
+                            <p><strong>Test:</strong> ${data.test.test_name}</p>
+                            <p><strong>Text:</strong> ${data.test_text}</p>
+                            <p><strong>Status:</strong> ${data.test.success ? 'Lyckades' : 'Misslyckades'}</p>
+                            <pre>${data.test.output || 'Ingen output'}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Fel: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Fel: ${error.message}</div>`;
+            }
+        }
+        
+        async function runAllTests() {
+            const testText = document.getElementById('testText').value;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="info">⏳ Kör alla tester...</div>';
+            
+            try {
+                let url = '/api/test';
+                if (testText) {
+                    url += `?text=${encodeURIComponent(testText)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.status === 'completed') {
+                    let resultHtml = '<div class="success"><h3>✅ Alla tester klara!</h3>';
+                    resultHtml += `<p><strong>Text:</strong> ${data.test_text}</p>`;
+                    resultHtml += `<p><strong>Resultat:</strong> ${data.summary.passed}/${data.summary.total} lyckades</p>`;
+                    
+                    for (const [testKey, testResult] of Object.entries(data.tests)) {
+                        const status = testResult.success ? '✅' : '❌';
+                        resultHtml += `<p>${status} ${testResult.test_name}: ${testResult.success ? 'Lyckades' : 'Misslyckades'}</p>`;
+                    }
+                    
+                    resultHtml += '</div>';
+                    resultDiv.innerHTML = resultHtml;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Fel: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Fel: ${error.message}</div>`;
+            }
+        }
+        </script>
+    </body>
+    </html>
+    """
+    
+    return html
