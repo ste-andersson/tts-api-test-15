@@ -5,8 +5,8 @@ import time
 import subprocess
 import sys
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, List
+from fastapi import APIRouter, HTTPException, Query
+from typing import Dict, Any, List, Optional
 
 router = APIRouter()
 
@@ -17,12 +17,54 @@ class TestRunner:
         self.test_results = {}
         self.audio_data = {}
     
-    async def run_test(self, test_name: str, test_path: str) -> Dict[str, Any]:
-        """Kör ett specifikt test och returnerar resultat."""
+    async def run_specific_test(self, test_type: str) -> Dict[str, Any]:
+        """Kör ett specifikt test baserat på typ."""
+        test_configs = {
+            "unit": {
+                "name": "Enhetstester",
+                "path": "tests/test_receive_text.py",
+                "description": "Testar individuella moduler"
+            },
+            "api-mock": {
+                "name": "API Mock-tester",
+                "path": "tests/test_text_to_audio.py tests/test_send_audio.py",
+                "description": "Testar API med mock-data"
+            },
+            "full-mock": {
+                "name": "Fullständig Pipeline Mock",
+                "path": "tests/test_full_tts_pipeline.py",
+                "description": "Testar hela kedjan med mock-data"
+            },
+            "elevenlabs": {
+                "name": "ElevenLabs API Test",
+                "path": "tests/test_real_elevenlabs.py",
+                "description": "Testar mot riktig ElevenLabs API"
+            },
+            "pipeline": {
+                "name": "Fullständig Pipeline Test",
+                "path": "tests/test_full_chain.py",
+                "description": "Testar hela kedjan från frontend till audio"
+            }
+        }
+        
+        if test_type not in test_configs:
+            raise ValueError(f"Okänd test-typ: {test_type}")
+        
+        config = test_configs[test_type]
+        
         try:
+            print(f"🚀 Startar {config['name']}...")
+            
             # Kör testet med pytest
+            cmd = [sys.executable, "-m", "pytest", "-v", "-s"]
+            if " " in config["path"]:
+                # För tester som kör flera filer
+                cmd.extend(config["path"].split())
+            else:
+                cmd.append(config["path"])
+            
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", test_path, "-v", "--json-report"],
+                cmd,
                 capture_output=True,
                 text=True,
                 cwd=Path(__file__).parent.parent.parent
@@ -33,54 +75,39 @@ class TestRunner:
             output = result.stdout
             error = result.stderr
             
-            # Samla audio-data om testet kördes framgångsrikt
-            audio_data = None
-            if success and "test_audio" in test_name.lower():
-                audio_data = self._generate_test_audio()
-            
             return {
-                "test_name": test_name,
+                "test_type": test_type,
+                "test_name": config["name"],
+                "description": config["description"],
                 "success": success,
                 "output": output,
                 "error": error,
-                "audio_data": audio_data
+                "return_code": result.returncode,
+                "command": " ".join(cmd)
             }
             
         except Exception as e:
             return {
-                "test_name": test_name,
+                "test_type": test_type,
+                "test_name": config["name"],
+                "description": config["description"],
                 "success": False,
                 "output": "",
                 "error": str(e),
-                "audio_data": None
+                "return_code": -1,
+                "command": " ".join(cmd) if 'cmd' in locals() else "unknown"
             }
-    
-    def _generate_test_audio(self) -> str:
-        """Genererar test-audio data (base64)."""
-        # Simulerar audio-data för tester
-        # I verkligheten skulle detta komma från faktiska tester
-        test_audio = b"test_audio_data_for_" + str(time.time()).encode()
-        return base64.b64encode(test_audio).decode()
     
     async def run_all_tests(self) -> Dict[str, Any]:
         """Kör alla tester och returnerar sammanfattning."""
-        tests = [
-            ("test_receive_text", "tests/test_receive_text.py"),
-            ("test_text_to_audio", "tests/test_text_to_audio.py"),
-            ("test_send_audio", "tests/test_send_audio.py"),
-            ("test_full_tts_pipeline", "tests/test_full_tts_pipeline.py")
-        ]
+        test_types = ["unit", "api-mock", "full-mock", "elevenlabs", "pipeline"]
         
         start_time = time.time()
         results = {}
         
-        for test_name, test_path in tests:
-            result = await self.run_test(test_name, test_path)
-            results[test_name] = result
-            
-            # Samla audio-data
-            if result.get("audio_data"):
-                self.audio_data[test_name] = result["audio_data"]
+        for test_type in test_types:
+            result = await self.run_specific_test(test_type)
+            results[test_type] = result
         
         total_time = time.time() - start_time
         
@@ -88,34 +115,95 @@ class TestRunner:
             "status": "completed",
             "total_time": round(total_time, 3),
             "tests": results,
-            "audio_data": self.audio_data,
             "summary": {
-                "total": len(tests),
+                "total": len(test_types),
                 "passed": sum(1 for r in results.values() if r["success"]),
                 "failed": sum(1 for r in results.values() if not r["success"])
             }
         }
 
+def get_test_info() -> Dict[str, Any]:
+    """Returnerar information om tillgängliga tester."""
+    return {
+        "unit": {
+            "name": "Enhetstester",
+            "description": "Testar individuella moduler",
+            "command": "make test-unit",
+            "url": "/api/test?test_type=unit"
+        },
+        "api-mock": {
+            "name": "API Mock-tester", 
+            "description": "Testar API med mock-data",
+            "command": "make test-api-mock",
+            "url": "/api/test?test_type=api-mock"
+        },
+        "full-mock": {
+            "name": "Fullständig Pipeline Mock",
+            "description": "Testar hela kedjan med mock-data",
+            "command": "make test-full-mock",
+            "url": "/api/test?test_type=full-mock"
+        },
+        "elevenlabs": {
+            "name": "ElevenLabs API Test",
+            "description": "Testar mot riktig ElevenLabs API",
+            "command": "make test-elevenlabs",
+            "url": "/api/test?test_type=elevenlabs"
+        },
+        "pipeline": {
+            "name": "Fullständig Pipeline Test", 
+            "description": "Testar hela kedjan från frontend till audio",
+            "command": "make test-pipeline",
+            "url": "/api/test?test_type=pipeline"
+        }
+    }
+
 @router.get("/test")
-async def run_tests() -> Dict[str, Any]:
-    """Kör alla tester och returnerar resultat."""
+async def test_endpoint(
+    test_type: Optional[str] = Query(None, description="Typ av test att köra"),
+    info: Optional[bool] = Query(False, description="Visa bara information utan att köra tester")
+) -> Dict[str, Any]:
+    """Enhetlig endpoint för tester - visar info och kör tester."""
+    
+    # Hämta test-information
+    test_info = get_test_info()
+    
+    # Om info=True, visa bara information
+    if info:
+        return {
+            "status": "info",
+            "message": "Använd /test?test_type=<typ> för att köra specifika tester",
+            "available_tests": test_info,
+            "examples": [
+                "/test?test_type=elevenlabs - Kör ElevenLabs API test",
+                "/test?test_type=pipeline - Kör fullständig pipeline test",
+                "/test - Kör alla tester",
+                "/test?info=true - Visa bara denna information"
+            ]
+        }
+    
     try:
         runner = TestRunner()
-        results = await runner.run_all_tests()
-        return results
+        
+        if test_type:
+            # Kör specifikt test
+            if test_type not in test_info:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Okänd test-typ: {test_type}. Tillgängliga: {', '.join(test_info.keys())}"
+                )
+            
+            result = await runner.run_specific_test(test_type)
+            return {
+                "status": "completed",
+                "test": result,
+                "message": f"Körde {result['test_name']}",
+                "available_tests": test_info  # Inkludera info för enkelhet
+            }
+        else:
+            # Kör alla tester
+            results = await runner.run_all_tests()
+            results["available_tests"] = test_info  # Inkludera info för enkelhet
+            return results
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Test execution failed: {str(e)}")
-
-@router.get("/test-status")
-async def get_test_status() -> Dict[str, Any]:
-    """Returnerar senaste testresultat."""
-    return {
-        "status": "ready",
-        "message": "Use /test endpoint to run tests",
-        "available_tests": [
-            "test_receive_text",
-            "test_text_to_audio", 
-            "test_send_audio",
-            "test_full_tts_pipeline"
-        ]
-    }
