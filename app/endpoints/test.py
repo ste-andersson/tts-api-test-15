@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from typing import Dict, Any, List, Optional
 
 router = APIRouter()
@@ -163,7 +164,15 @@ async def test_endpoint(
     info: Optional[bool] = Query(False, description="Visa bara information utan att köra tester"),
     text: Optional[str] = Query(None, description="Text att testa med")
 ) -> Dict[str, Any]:
-    """Enhetlig endpoint för tester - visar info och kör tester."""
+    """Enhetlig endpoint för tester - visar info och kör tester.
+    
+    Tillgängliga tester:
+    - unit: Enhetstester (testar individuella moduler)
+    - api-mock: API Mock-tester (testar API med mock-data)
+    - full-mock: Fullständig Pipeline Mock (testar hela kedjan med mock-data)
+    - elevenlabs: ElevenLabs API Test (testar mot riktig ElevenLabs API)
+    - pipeline: Fullständig Pipeline Test (testar hela kedjan från frontend till audio)
+    """
     
     # Hämta test-information
     test_info = get_test_info()
@@ -236,3 +245,266 @@ async def test_endpoint(
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Test execution failed: {str(e)}")
+
+@router.get("/")
+async def test_home() -> HTMLResponse:
+    """Enkel startsida för tester."""
+    
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>TTS Test Center</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                max-width: 1000px; 
+                background: #f5f5f5;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 { color: #333; text-align: center; margin-bottom: 30px; }
+            .section { 
+                margin: 30px 0; 
+                padding: 20px; 
+                border: 1px solid #ddd; 
+                border-radius: 8px;
+                background: #fafafa;
+            }
+            .section h2 { color: #007bff; margin-top: 0; }
+            .test-button { 
+                background: #28a745; 
+                color: white; 
+                padding: 15px 25px; 
+                border: none; 
+                border-radius: 6px; 
+                font-size: 16px; 
+                cursor: pointer;
+                margin: 10px;
+                display: inline-block;
+            }
+            .test-button:hover { background: #218838; }
+            .test-button.secondary { background: #6c757d; }
+            .test-button.secondary:hover { background: #5a6268; }
+            .text-input { 
+                width: 100%; 
+                padding: 12px; 
+                border: 2px solid #ddd; 
+                border-radius: 6px; 
+                font-size: 16px; 
+                margin: 10px 0;
+            }
+            .text-input:focus { border-color: #007bff; outline: none; }
+            .result { 
+                margin: 20px 0; 
+                padding: 15px; 
+                border-radius: 6px; 
+                white-space: pre-wrap;
+                font-family: monospace;
+                font-size: 14px;
+            }
+            .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+            .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+            .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+            .loading { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+            .file-list {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+                padding: 15px;
+                margin: 10px 0;
+            }
+            .file-item {
+                padding: 8px;
+                border-bottom: 1px solid #dee2e6;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .file-item:last-child { border-bottom: none; }
+            .play-button {
+                background: #007bff;
+                color: white;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+            }
+            .play-button:hover { background: #0056b3; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🎯 TTS Test Center</h1>
+            
+            <!-- Test Section -->
+            <div class="section">
+                <h2>🧪 Kör Tester</h2>
+                <p>Välj text och klicka på test du vill köra:</p>
+                
+                <input type="text" id="testText" class="text-input" 
+                       placeholder="Skriv text här (t.ex. 'Hej världen!') eller lämna tomt för standardtext">
+                
+                <div style="margin: 20px 0;">
+                    <button class="test-button" onclick="runTest('elevenlabs')">
+                        🎵 ElevenLabs API Test
+                    </button>
+                    <button class="test-button" onclick="runTest('pipeline')">
+                        🔄 Fullständig Pipeline Test
+                    </button>
+                    <button class="test-button secondary" onclick="runAllTests()">
+                        🔄 Kör Alla Tester
+                    </button>
+                </div>
+                
+                <div id="testResult"></div>
+            </div>
+            
+            <!-- Audio Files Section -->
+            <div class="section">
+                <h2>🎵 Audio Filer</h2>
+                <p>Här kan du spela upp och ladda ner genererade audio-filer:</p>
+                
+                <button class="test-button" onclick="loadAudioFiles()">
+                    📂 Ladda Audio Filer
+                </button>
+                
+                <div id="audioFiles"></div>
+            </div>
+        </div>
+        
+        <script>
+        async function runTest(testType) {
+            const testText = document.getElementById('testText').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            resultDiv.innerHTML = '<div class="loading">⏳ Kör test...</div>';
+            
+            try {
+                let url = `/api/test?test_type=${testType}`;
+                if (testText) {
+                    url += `&text=${encodeURIComponent(testText)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.status === 'completed') {
+                    const success = data.test.success ? '✅ Lyckades' : '❌ Misslyckades';
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>${success}</h3>
+                            <p><strong>Test:</strong> ${data.test.test_name}</p>
+                            <p><strong>Text:</strong> ${data.test_text}</p>
+                            <p><strong>Output:</strong></p>
+                            <pre>${data.test.output || 'Ingen output'}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Fel: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Fel: ${error.message}</div>`;
+            }
+        }
+        
+        async function runAllTests() {
+            const testText = document.getElementById('testText').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            resultDiv.innerHTML = '<div class="loading">⏳ Kör alla tester...</div>';
+            
+            try {
+                let url = '/api/test';
+                if (testText) {
+                    url += `?text=${encodeURIComponent(testText)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.status === 'completed') {
+                    let resultHtml = '<div class="success"><h3>✅ Alla tester klara!</h3>';
+                    resultHtml += `<p><strong>Text:</strong> ${data.test_text}</p>`;
+                    resultHtml += `<p><strong>Resultat:</strong> ${data.summary.passed}/${data.summary.total} lyckades</p>`;
+                    
+                    for (const [testKey, testResult] of Object.entries(data.tests)) {
+                        const status = testResult.success ? '✅' : '❌';
+                        resultHtml += `<p>${status} ${testResult.test_name}: ${testResult.success ? 'Lyckades' : 'Misslyckades'}</p>`;
+                    }
+                    
+                    resultHtml += '</div>';
+                    resultDiv.innerHTML = resultHtml;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Fel: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Fel: ${error.message}</div>`;
+            }
+        }
+        
+        async function loadAudioFiles() {
+            const audioDiv = document.getElementById('audioFiles');
+            audioDiv.innerHTML = '<div class="loading">⏳ Laddar filer...</div>';
+            
+            try {
+                const response = await fetch('/api/audio-files');
+                const data = await response.json();
+                
+                if (data.files.length === 0) {
+                    audioDiv.innerHTML = '<div class="info">📂 Inga audio-filer hittades. Kör ett test först!</div>';
+                    return;
+                }
+                
+                let html = '<div class="file-list">';
+                html += `<h4>📂 ${data.files.length} filer hittade:</h4>`;
+                
+                data.files.forEach(file => {
+                    const fileSizeKB = (file.size / 1024).toFixed(1);
+                    const modifiedTime = new Date(file.modified * 1000).toLocaleString('sv-SE');
+                    
+                    html += `
+                        <div class="file-item">
+                            <div>
+                                <strong>📁 ${file.name}</strong><br>
+                                <small>${fileSizeKB} KB • ${file.type.toUpperCase()} • ${modifiedTime}</small>
+                            </div>
+                            <div>
+                                ${file.type === '.wav' ? 
+                                    `<button class="play-button" onclick="playAudio('${file.name}')">▶️ Spela</button>` : 
+                                    `<span style="color: #6c757d;">PCM (ladda ner)</span>`
+                                }
+                                <button class="play-button" onclick="downloadFile('${file.name}')">📥 Ladda ner</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                audioDiv.innerHTML = html;
+                
+            } catch (error) {
+                audioDiv.innerHTML = `<div class="error">❌ Fel: ${error.message}</div>`;
+            }
+        }
+        
+        function playAudio(filename) {
+            const audio = new Audio(`/api/download-audio/${filename}`);
+            audio.play();
+        }
+        
+        function downloadFile(filename) {
+            window.open(`/api/download-audio/${filename}`, '_blank');
+        }
+        </script>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html)
