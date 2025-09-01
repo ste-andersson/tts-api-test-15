@@ -9,9 +9,7 @@ from unittest.mock import AsyncMock
 from app.tts.receive_text_from_frontend import receive_and_validate_text
 from app.tts.text_to_audio import process_text_to_audio
 from app.tts.send_audio_to_frontend import send_audio_to_frontend
-import sys
-sys.path.append('tools')
-from pcm_to_wav import pcm_to_wav
+from tests.utils.pcm_to_wav import pcm_to_wav
 
 def test_full_chain_with_real_elevenlabs():
     """Testar HELA kedjan från frontend till audio-fil som skickas till frontend."""
@@ -27,7 +25,7 @@ def test_full_chain_with_real_elevenlabs():
         
         # 1. Simulera frontend som skickar text
         mock_websocket = AsyncMock()
-        test_text = "Detta är ett test av hela TTS-kedjan från frontend till audio-fil!"
+        test_text = os.getenv("TEXT", "Detta är ett test av hela TTS-kedjan från frontend till audio-fil!")
         mock_websocket.receive_text = AsyncMock(return_value=json.dumps({"text": test_text}))
         
         print(f"📝 Frontend skickar text: '{test_text}'")

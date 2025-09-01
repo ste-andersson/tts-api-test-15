@@ -160,7 +160,8 @@ def get_test_info() -> Dict[str, Any]:
 @router.get("/test")
 async def test_endpoint(
     test_type: Optional[str] = Query(None, description="Typ av test att köra"),
-    info: Optional[bool] = Query(False, description="Visa bara information utan att köra tester")
+    info: Optional[bool] = Query(False, description="Visa bara information utan att köra tester"),
+    text: Optional[str] = Query(None, description="Text att testa med")
 ) -> Dict[str, Any]:
     """Enhetlig endpoint för tester - visar info och kör tester."""
     
@@ -176,6 +177,7 @@ async def test_endpoint(
             "examples": [
                 "/test?test_type=elevenlabs - Kör ElevenLabs API test",
                 "/test?test_type=pipeline - Kör fullständig pipeline test",
+                "/test?test_type=elevenlabs&text=Hej världen - Kör med egen text",
                 "/test - Kör alla tester",
                 "/test?info=true - Visa bara denna information"
             ]
@@ -192,17 +194,29 @@ async def test_endpoint(
                     detail=f"Okänd test-typ: {test_type}. Tillgängliga: {', '.join(test_info.keys())}"
                 )
             
+            # Sätt TEXT-miljövariabel om text angavs
+            if text:
+                import os
+                os.environ["TEXT"] = text
+            
             result = await runner.run_specific_test(test_type)
             return {
                 "status": "completed",
                 "test": result,
-                "message": f"Körde {result['test_name']}",
-                "available_tests": test_info  # Inkludera info för enkelhet
+                "message": f"Körde {result['test_name']} med text: '{text or 'standardtext'}'",
+                "available_tests": test_info,  # Inkludera info för enkelhet
+                "test_text": text or "standardtext"
             }
         else:
             # Kör alla tester
+            # Sätt TEXT-miljövariabel om text angavs
+            if text:
+                import os
+                os.environ["TEXT"] = text
+            
             results = await runner.run_all_tests()
             results["available_tests"] = test_info  # Inkludera info för enkelhet
+            results["test_text"] = text or "standardtext"
             return results
             
     except Exception as e:

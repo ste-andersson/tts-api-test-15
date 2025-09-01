@@ -7,9 +7,7 @@ import os
 from pathlib import Path
 from unittest.mock import AsyncMock
 from app.tts.text_to_audio import process_text_to_audio
-import sys
-sys.path.append('tools')
-from pcm_to_wav import pcm_to_wav
+from tests.utils.pcm_to_wav import pcm_to_wav
 
 def test_real_elevenlabs_pipeline():
     """Testar ElevenLabs API med riktig anslutning."""
@@ -20,15 +18,16 @@ def test_real_elevenlabs_pipeline():
         if not ELEVENLABS_API_KEY:
             pytest.skip("Ingen ElevenLabs API-nyckel konfigurerad (sätt ELEVENLABS_API_KEY miljövariabel)")
         
+        # Hämta text från miljövariabel eller använd standard
+        test_text = os.getenv("TEXT", "Detta är ett test av ElevenLabs API med riktig anslutning!")
+        
         print(f"\n🚀 STARTAR RIKTIGT ELEVENLABS TEST")
         print(f"🔑 API-nyckel: {'✅ Konfigurerad' if ELEVENLABS_API_KEY else '❌ Saknas'}")
+        print(f"📝 Test-text: '{test_text}'")
+        print(f"⏱️  Starttid: {time.strftime('%H:%M:%S')}")
         
         # Simulera websocket
         mock_websocket = AsyncMock()
-        test_text = "Detta är ett test av ElevenLabs API med riktig anslutning!"
-        
-        print(f"📝 Test-text: '{test_text}'")
-        print(f"⏱️  Starttid: {time.strftime('%H:%M:%S')}")
         
         started_at = time.time()
         audio_chunks = []

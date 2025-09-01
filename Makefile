@@ -2,6 +2,7 @@
 
 VENV?=.venv
 PY?=python3.13
+TEXT?="Detta är ett test av TTS-systemet med standardtext"
 
 install:
 	$(PY) -m venv $(VENV)
@@ -14,7 +15,7 @@ dev:
 	. $(VENV)/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port $${PORT:-8080}
 
 format:
-	. $(VENV)/bin/activate && python -m pip install ruff==0.6.9 && ruff format .
+	. $(VENV)/bin/activate && python -m pip install ruff==0.6.9 && ruff check .
 
 lint:
 	. $(VENV)/bin/activate && python -m pip install ruff==0.6.9 && ruff check .
@@ -26,19 +27,19 @@ test:
 	. $(VENV)/bin/activate && python -m pytest tests/ -v
 
 test-unit:
-	. $(VENV)/bin/activate && python -m pytest tests/test_receive_text.py -v
+	. $(VENV)/bin/activate && TEXT="$(TEXT)" python -m pytest tests/test_receive_text.py -v
 
 test-api-mock:
-	. $(VENV)/bin/activate && python -m pytest tests/test_text_to_audio.py tests/test_send_audio.py -v
+	. $(VENV)/bin/activate && TEXT="$(TEXT)" python -m pytest tests/test_text_to_audio.py tests/test_send_audio.py -v
 
 test-full-mock:
-	. $(VENV)/bin/activate && python -m pytest tests/test_full_tts_pipeline.py -v
+	. $(VENV)/bin/activate && TEXT="$(TEXT)" python -m pytest tests/test_full_tts_pipeline.py -v
 
 test-elevenlabs:
-	. $(VENV)/bin/activate && python -m pytest tests/test_real_elevenlabs.py -v -s
+	. $(VENV)/bin/activate && TEXT="$(TEXT)" python -m pytest tests/test_real_elevenlabs.py -v -s
 
 test-pipeline:
-	. $(VENV)/bin/activate && python -m pytest tests/test_full_chain.py -v -s
+	. $(VENV)/bin/activate && TEXT="$(TEXT)" python -m pytest tests/test_full_chain.py -v -s
 
 clear-output:
 	@echo "🧹 Rensar test_output-mappen..."
